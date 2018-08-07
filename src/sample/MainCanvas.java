@@ -10,23 +10,21 @@ import sample.objects.BladeWind;
 import sample.objects.Hero;
 import sample.res.Images;
 
+import java.util.ArrayList;
+
 public class MainCanvas extends Canvas {
-    public static final int WIDTH =800;
+    public static final int WIDTH = 800;
     public static final int HEIGHT = 600;
     public GraphicsContext graphicsContext = this.getGraphicsContext2D();
 
     //Hero对象
     Hero hero = new Hero();
     //冲击波对象
-    BladeWind bladeWind;
-
-    //此方法用来设置hero初始值
-    void setup(){
-        hero.setX(200);
-        hero.setY(450);
-    }
-
-
+    BladeWind bladeWind = new BladeWind();
+    //设置发射冲击波开关
+    boolean STATE = false;
+    //设置冲击波的ArrayList
+    ArrayList<BladeWind> bwal = new ArrayList<>();
 
     public MainCanvas() throws InterruptedException {
         this.setWidth(WIDTH);
@@ -36,27 +34,23 @@ public class MainCanvas extends Canvas {
         paintAll();
 
 
-        new Thread(()-> {
+        new Thread(() -> {
             System.out.println("线程开始");
-            this.addEventHandler(KeyEvent.KEY_PRESSED,new EventHandler<KeyEvent>() {
+            this.addEventHandler(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>() {
                 @Override
                 public void handle(KeyEvent event) {
                     onKeyPressed(event);
                 }
             });
-            this.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
-                @Override
-                public void handle(MouseEvent event) {
-                }
-            });
             this.addEventHandler(KeyEvent.KEY_RELEASED, new EventHandler<KeyEvent>() {
                 @Override
                 public void handle(KeyEvent event) {
-                    if (event.getCode() == KeyCode.Z){
+                    if (event.getCode() == KeyCode.X) {
                         hero.stopAttack();
-                    }else if (event.getCode() == KeyCode.X){
+                        STATE = false;
+                    } else if (event.getCode() == KeyCode.Z) {
                         hero.stopAttack();
-                    }else if (event.getCode() == KeyCode.UP){
+                    } else if (event.getCode() == KeyCode.UP) {
                         hero.stopAttack();
                     }
                 }
@@ -64,9 +58,12 @@ public class MainCanvas extends Canvas {
         }).start();
 
         //此线程用来不断刷新画面
-        new Thread(()->{
+        new Thread(() -> {
             while (true) {
+                //汇出场景和英雄
                 paintAll();
+                //汇出发射的冲击波
+                paintBladeSelectly();
                 try {
                     Thread.sleep(50);
                 } catch (InterruptedException e) {
@@ -77,71 +74,64 @@ public class MainCanvas extends Canvas {
 
     }
 
-    private void onKeyPressed(KeyEvent event) {
-        if(event.getCode() == KeyCode.LEFT){
-            hero.setX(hero.getX() - hero.getSpeed());
-        }else if(event.getCode() == KeyCode.RIGHT){
-            hero.setX(hero.getX() + hero.getSpeed());
-        }else if(event.getCode() == KeyCode.UP){
-            hero.setY(hero.getY()- hero.getJumpSpeed());
-            hero.jump();
-        }else if(event.getCode() == KeyCode.DOWN){
-            hero.setY(hero.getY()+hero.getSpeed());
-        }else if (event.getCode() == KeyCode.Z){
-            hero.attack();
-        }else if (event.getCode() == KeyCode.X){
-            hero.HeavyAttack();
-
-
-            bladeWind = new BladeWind();
-            bladeWind.setX((int) (hero.getX()+hero.getImage().getWidth()));
-            bladeWind.setY(hero.getY());
-
-            //单开的唯一的绘制冲击波的线程
-            BladeWindThread bladeWindThread = new BladeWindThread(bladeWind);
-            bladeWindThread.start();
-
+    private void paintBladeSelectly() {
+        if (STATE) {
+            //每次按下按键 就在ArrayList里添加一个新的冲击波
+            bwal.add(new BladeWind((int) (hero.getX() + hero.getImage().getWidth()), hero.getY(), true));
         }
-    }
-
-    public void paintAll(){
-        paint();
-        paintHero(hero.getX(),hero.getY());
-    }
-
-    public void paint(){
-        graphicsContext.drawImage(Images.background,0,0);
-    }
-
-    public void paintHero(int x,int y){
-        graphicsContext.drawImage(hero.getImage(),x,y);
-    }
-
-    public void paintBladeWind(int x,int y, BladeWind bladeWind){
-        graphicsContext.drawImage(bladeWind.getImage(),x,y);
-    }
-
-    class BladeWindThread extends Thread{
-
-        BladeWind bladeWind;
-
-        public BladeWindThread(BladeWind bladeWind){
-                this.bladeWind = bladeWind;
-        }
-
-        @Override
-        public void run() {
-            System.out.println("KAISHI");
-            while (bladeWind.getX()<=800) {
-                paintBladeWind(bladeWind.getX(),bladeWind.getY(),bladeWind);
-                bladeWind.setX(bladeWind.getX()+bladeWind.getBladespeed());
-                try {
-                    Thread.currentThread().sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+        //遍历所有冲击波，如果正在发射状态，就画出来
+        for (BladeWind bw : bwal
+        ) {
+            if (bw.isFired() && bw.getX() <= 800) {
+                paintBladeWind(bw.getX(), bw.getY(), bw);
+                bw.setX(bw.getX() + bw.getBladespeed());
+            } else {
+                bw.setFired(false);
             }
         }
     }
+
+    //此方法用来设置hero初始值
+    void setup() {
+        hero.setX(200);
+        hero.setY(450);
+    }
+
+    private void onKeyPressed(KeyEvent event) {
+        if (event.getCode() == KeyCode.LEFT) {
+            hero.setX(hero.getX() - hero.getSpeed());
+        } else if (event.getCode() == KeyCode.RIGHT) {
+            hero.setX(hero.getX() + hero.getSpeed());
+        } else if (event.getCode() == KeyCode.UP) {
+            hero.setY(hero.getY() - hero.getJumpSpeed());
+            hero.jump();
+        } else if (event.getCode() == KeyCode.DOWN) {
+            hero.setY(hero.getY() + hero.getSpeed());
+        } else if (event.getCode() == KeyCode.X) {
+            hero.HeavyAttack();
+            STATE = true;
+        } else if (event.getCode() == KeyCode.Z) {
+            hero.attack();
+        }
+    }
+
+
+    public void paintAll() {
+        paint();
+        paintHero(hero.getX(), hero.getY());
+    }
+
+    public void paint() {
+        graphicsContext.drawImage(Images.background, 0, 0);
+    }
+
+    public void paintHero(int x, int y) {
+        graphicsContext.drawImage(hero.getImage(), x, y);
+    }
+
+    public void paintBladeWind(int x, int y, BladeWind bladeWind) {
+        graphicsContext.drawImage(bladeWind.getImage(), x, y);
+    }
+
 
 }
